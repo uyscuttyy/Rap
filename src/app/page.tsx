@@ -1,69 +1,85 @@
-import Image from "next/image";
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div>
+      <section className="mx-auto max-w-3xl px-6 pt-24 pb-16 text-center">
+        <p className="text-sm font-medium text-gray-500">Reliable Agent Payments</p>
+        <h1 className="mt-4 text-5xl font-semibold tracking-tight">
+          Your agent can retry. You should not pay twice.
+        </h1>
+        <p className="mx-auto mt-6 max-w-xl text-lg text-gray-600">
+          Payments fail in ambiguous ways: timeouts, crashes, lost responses.
+          The dangerous answer is send it again. RAP gives every payment an
+          identity, so a retry can never become a second charge.
+        </p>
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <Button variant="pill" size="lg" asChild>
+            <Link href="/pay">Start with RAP</Link>
+          </Button>
+          <Button variant="pillOutline" size="lg" asChild>
+            <Link href="/api-docs">Integrate RAP</Link>
+          </Button>
+        </div>
+      </section>
+
+      <section className="w-full bg-gray-50">
+        <div className="mx-auto max-w-3xl px-6 py-16">
+          <h2 className="text-center text-2xl font-semibold tracking-tight">The problem</h2>
+          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-lg border border-gray-200 bg-white p-6">
+              <p className="font-medium">Your agent sends a payment.</p>
+              <p className="mt-2 text-sm text-gray-600">The request times out. The app crashes. The connection drops.</p>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-6">
+              <p className="font-medium">The response disappears.</p>
+              <p className="mt-2 text-sm text-gray-600">Did it go through? The chain may have the transaction, or it may not.</p>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-6">
+              <p className="font-medium">Retry blindly, pay twice.</p>
+              <p className="mt-2 text-sm text-gray-600">Sending again without knowing is how users get charged two times.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-3xl px-6 py-16">
+        <h2 className="text-center text-2xl font-semibold tracking-tight">How RAP solves it</h2>
+        <ol className="mx-auto mt-8 max-w-xl space-y-4 text-left">
+          <li className="flex gap-4">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black text-xs font-semibold text-white">1</span>
+            <p className="text-gray-700"><span className="font-medium text-black">Create a payment.</span> RAP assigns it a unique payment ID, its identity for life.</p>
+          </li>
+          <li className="flex gap-4">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black text-xs font-semibold text-white">2</span>
+            <p className="text-gray-700"><span className="font-medium text-black">KeeperHub executes it once.</span> The payment ID travels as the idempotency key, so the network itself refuses duplicates.</p>
+          </li>
+          <li className="flex gap-4">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black text-xs font-semibold text-white">3</span>
+            <p className="text-gray-700"><span className="font-medium text-black">Retry safely.</span> Already paid returns the original transaction. Still checking waits. Genuinely failed needs a new payment.</p>
+          </li>
+        </ol>
+        <div className="mt-10 text-center">
+          <Button variant="pill" size="lg" asChild>
+            <Link href="/api-docs">API Docs</Link>
+          </Button>
+        </div>
+      </section>
+
+      <section className="w-full bg-gray-950 text-white">
+        <div className="mx-auto max-w-3xl px-6 py-16 text-center">
+          <h2 className="text-2xl font-semibold tracking-tight">One payment identity. Never two charges.</h2>
+          <p className="mx-auto mt-4 max-w-xl text-gray-400">
+            Real execution through KeeperHub on Base Sepolia, verified onchain before any payment is marked paid.
           </p>
+          <div className="mt-8 flex items-center justify-center gap-3">
+            <Button variant="pillOutline" size="lg" className="border-gray-700 bg-transparent text-white hover:bg-gray-900" asChild>
+              <Link href="/pay">Open the Pay Desk</Link>
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </section>
     </div>
   );
 }
