@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Policy } from '@/db/policy-schema';
 
 const { mockGetExecutionStatus, mockExecuteTransfer } = vi.hoisted(() => ({
   mockGetExecutionStatus: vi.fn(),
@@ -23,6 +24,12 @@ vi.mock('@/lib/keeperhub', async (importOriginal) => {
     },
   };
 });
+
+vi.mock('@/lib/policy-service', () => ({
+  policyService: {
+    evaluateAll: vi.fn(async () => ({ allowed: true })),
+  },
+}));
 
 import { db } from '@/db';
 import { paymentService } from '@/lib/payment-service';
@@ -75,6 +82,14 @@ function setupDb(insertResult: unknown[] = []) {
         }),
       }) as never
   );
+  // Preserve policy select chain for policy service
+  const mockSelectResult: Policy[] = [];
+  const mockSelectChain = {
+    from: () => mockSelectChain,
+    where: () => Promise.resolve(mockSelectResult),
+  };
+  // Only override select for non-policy calls - but since we can't distinguish,
+  // we need a different approach. Let's make the policy service use the mocked chain.
   mockDb.update.mockReturnValue({
     set: vi.fn().mockReturnValue({
       where: vi.fn(async () => []),

@@ -3,6 +3,7 @@ import { payments, paymentExecutions, type NewPayment, type NewPaymentExecution 
 import { eq, desc } from 'drizzle-orm';
 import { generatePaymentId } from '@/lib/utils';
 import { keeperHub, type TransferRequest, BASE_SEPOLIA_CHAIN_ID, ZERO_ADDRESS } from '@/lib/keeperhub';
+import { policyService } from '@/lib/policy-service';
 
 export interface CreatePaymentParams {
   userAddress: string;
@@ -159,6 +160,17 @@ export class PaymentService {
 
     if (payment.status === 'failed') {
       throw new Error('Payment failed. Create a new payment to retry.');
+    }
+
+    // Evaluate policies before execution
+    const policyCheck = await policyService.evaluateAll({
+      amountWei: payment.amount,
+      recipient: payment.recipient,
+      chainId: BASE_SEPOLIA_CHAIN_ID,
+      tokenAddress: payment.token,
+    });
+    if (!policyCheck.allowed) {
+      throw new Error(`Policy violation: ${policyCheck.reason}`);
     }
 
     const isNative = payment.token.toLowerCase() === ZERO_ADDRESS.toLowerCase();
