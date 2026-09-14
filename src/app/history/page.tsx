@@ -5,6 +5,7 @@ import { useAccount } from 'wagmi';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { PaymentCard, type PaymentSummary } from '@/components/payments/payment-card';
+import { Loader2, CreditCard, PlusCircle } from 'lucide-react';
 
 export default function HistoryPage() {
   const { address, isConnected } = useAccount();
@@ -36,37 +37,62 @@ export default function HistoryPage() {
     };
   }, [address]);
 
+  function Spinner({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) {
+    const sizes = { sm: 'h-4 w-4', md: 'h-5 w-5', lg: 'h-8 w-8' };
+    return (
+      <Loader2 className={`${sizes[size]} animate-spin text-current`} aria-hidden="true" />
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
-      <h1 className="text-center text-3xl font-semibold tracking-tight">Payment history</h1>
-      <p className="mt-2 text-center text-gray-600">
-        Every payment keeps its identity and state, even across refreshes.
-      </p>
+      <header className="mb-8">
+        <h1 className="text-center text-3xl font-semibold tracking-tight">Payment history</h1>
+        <p className="mt-2 text-center text-gray-600">
+          Every payment keeps its identity and state, even across refreshes.
+        </p>
+      </header>
 
       <div className="mx-auto mt-8 max-w-xl space-y-3">
         {!isConnected && (
           <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+            <CreditCard className="h-12 w-12 mx-auto text-gray-300 mb-3" aria-hidden="true" />
             <p className="text-gray-600">Connect your wallet to see your payments.</p>
           </div>
         )}
 
         {isConnected && loading && (
-          <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-            <p className="text-gray-500">Loading payments...</p>
+          <div
+            className="rounded-lg border border-gray-200 bg-white p-8 text-center"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Spinner size="md" />
+              <span className="text-gray-500">Loading payments...</span>
+            </div>
           </div>
         )}
 
         {isConnected && !loading && error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center" role="alert">
             <p className="text-sm text-red-600">{error}</p>
+            <Button variant="pillOutline" className="mt-4" onClick={() => window.location.reload()}>
+              <Loader2 className="h-4 w-4 mr-2" aria-hidden="true" />
+              Try again
+            </Button>
           </div>
         )}
 
         {isConnected && !loading && !error && payments.length === 0 && (
           <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+            <CreditCard className="h-12 w-12 mx-auto text-gray-300 mb-3" aria-hidden="true" />
             <p className="text-gray-600">No payments yet.</p>
             <Button variant="pill" size="sm" className="mt-4" asChild>
-              <Link href="/pay">Create your first payment</Link>
+              <Link href="/pay">
+                <PlusCircle className="h-4 w-4 mr-2" aria-hidden="true" />
+                Create your first payment
+              </Link>
             </Button>
           </div>
         )}

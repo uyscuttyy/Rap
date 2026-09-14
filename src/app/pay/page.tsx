@@ -11,8 +11,64 @@ import { StatusBadge, StatusExplainer, formatEthAmount, type PaymentSummary } fr
 import { formatAddress, formatTransactionHash } from '@/lib/utils';
 import { getExplorerUrl, BASE_SEPOLIA_CHAIN_ID } from '@/lib/keeperhub';
 import { toast } from 'sonner';
+import { Loader2, CheckCircle2, AlertCircle, XCircle, RefreshCw, ExternalLink } from 'lucide-react';
 
 type Step = 'form' | 'created' | 'executing' | 'done';
+
+function Spinner({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) {
+  const sizes = { sm: 'h-4 w-4', md: 'h-5 w-5', lg: 'h-8 w-8' };
+  return (
+    <Loader2 className={`${sizes[size]} animate-spin text-current`} aria-hidden="true" />
+  );
+}
+
+function StatusIcon({ status }: { status: PaymentSummary['status'] }) {
+  switch (status) {
+    case 'paid':
+      return <CheckCircle2 className="h-5 w-5 text-green-600" aria-hidden="true" />;
+    case 'failed':
+      return <XCircle className="h-5 w-5 text-red-600" aria-hidden="true" />;
+    case 'pending':
+      return <Loader2 className="h-5 w-5 animate-spin text-yellow-600" aria-hidden="true" />;
+    case 'unknown':
+      return <AlertCircle className="h-5 w-5 text-gray-600" aria-hidden="true" />;
+  }
+}
+
+function ActionButtons({
+  payment,
+  busy,
+  onRetry,
+  onRefresh,
+  onNewPayment,
+}: {
+  payment: PaymentSummary;
+  busy: boolean;
+  onRetry: () => void;
+  onRefresh: () => void;
+  onNewPayment: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 pt-2" role="group" aria-label="Payment actions">
+      {payment.status !== 'paid' && (
+        <Button onClick={onRetry} variant="pill" size="sm" disabled={busy}>
+          {busy ? <Spinner /> : 'Retry this payment'}
+        </Button>
+      )}
+      {payment.status === 'unknown' && (
+        <Button onClick={onRefresh} variant="pillOutline" size="sm" disabled={busy}>
+          <RefreshCw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} aria-hidden="true" />
+          <span>Check status</span>
+        </Button>
+      )}
+      {(payment.status === 'failed' || payment.status === 'paid') && (
+        <Button onClick={onNewPayment} variant="pillOutline" size="sm" disabled={busy}>
+          {payment.status === 'failed' ? 'Create new payment' : 'New payment'}
+        </Button>
+      )}
+    </div>
+  );
+}
 
 export default function PayPage() {
   const { address, isConnected } = useAccount();
@@ -126,10 +182,12 @@ export default function PayPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
-      <h1 className="text-center text-3xl font-semibold tracking-tight">Pay Desk</h1>
-      <p className="mt-2 text-center text-gray-600">
-        Create a payment. RAP gives it an identity and executes it exactly once.
-      </p>
+      <header className="mb-8">
+        <h1 className="text-center text-3xl font-semibold tracking-tight">Pay Desk</h1>
+        <p className="mt-2 text-center text-gray-600">
+          Create a payment. RAP gives it an identity and executes it exactly once.
+        </p>
+      </header>
 
       {step === 'form' && (
         <Card className="mx-auto mt-8 max-w-xl">
@@ -138,7 +196,7 @@ export default function PayPage() {
             <CardDescription>Sent on Base Sepolia via KeeperHub.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleCreateAndPay} className="space-y-4">
+            <form onSubmit={handleCreateAndPay} className="space-y-4" noValidate>
               <div className="space-y-2">
                 <Label htmlFor="recipient">Recipient</Label>
                 <Input
@@ -147,7 +205,9 @@ export default function PayPage() {
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value)}
                   disabled={busy}
+                  aria-describedby="recipient-hint"
                 />
+                <p id="recipient-hint" className="text-xs text-gray-500">Ethereum address (0x...)</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount (ETH)</Label>
@@ -158,11 +218,33 @@ export default function PayPage() {
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   disabled={busy}
+                  aria-describedby="amount-hint"
                 />
+                <p id="amount-hint" className="text-xs text-gray-500">Minimum 0.000001 ETH</p>
               </div>
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <Button type="submit" variant="pill" className="w-full" disabled={busy || !isConnected}>
-                {busy ? 'Working...' : isConnected ? 'Pay' : 'Connect wallet to pay'}
+              {error && (
+                <div className="rounded-md bg-red-50 border border-red-200 p-3" role="alert">
+                  <p className="text-sm text-red-600 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                    {error}
+                  </p>
+                </div>
+              )}
+              <Button
+                type="submit"
+                variant="pill"
+                className="w-full"
+                disabled={busy || !isConnected}
+              >
+                {busy ? (
+                  <>
+                    <Spinner /> Working...
+                  </>
+                ) : isConnected ? (
+                  'Pay'
+                ) : (
+                  'Connect wallet to pay'
+                )}
               </Button>
             </form>
           </CardContent>
@@ -173,71 +255,82 @@ export default function PayPage() {
         <Card className="mx-auto mt-8 max-w-xl">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Payment</CardTitle>
+              <div className="flex items-center gap-3">
+                <StatusIcon status={payment.status} />
+                <CardTitle>Payment</CardTitle>
+              </div>
               <StatusBadge status={payment.status} />
             </div>
             <CardDescription>
-              {step === 'executing' ? 'Executing through KeeperHub...' : <StatusExplainer status={payment.status} />}
+              {step === 'executing' ? (
+                <span className="flex items-center gap-2">
+                  <Spinner size="sm" /> Executing through KeeperHub...
+                </span>
+              ) : (
+                <StatusExplainer status={payment.status} />
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <div className="flex justify-between gap-4">
-              <span className="text-gray-500">Payment ID</span>
-              <span className="font-mono text-xs break-all text-right">{payment.paymentId}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-gray-500">To</span>
-              <span className="font-mono text-xs">{formatAddress(payment.recipient)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-gray-500">Amount</span>
-              <span className="font-medium">{formatEthAmount(payment.amount)} ETH</span>
-            </div>
-            {payment.transactionHash && (
-              <div className="flex justify-between gap-4">
-                <span className="text-gray-500">Transaction</span>
-                <a
-                  href={getExplorerUrl(BASE_SEPOLIA_CHAIN_ID, payment.transactionHash)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono text-xs underline-offset-4 hover:underline"
-                >
-                  {formatTransactionHash(payment.transactionHash)}
-                </a>
+            <dl className="space-y-3 divide-y divide-gray-100">
+              <div className="flex justify-between gap-4 py-2">
+                <dt className="text-gray-500">Payment ID</dt>
+                <dd className="font-mono text-xs break-all text-right">{payment.paymentId}</dd>
               </div>
-            )}
-            {payment.keeperhubExecutionId && (
-              <div className="flex justify-between gap-4">
-                <span className="text-gray-500">Execution</span>
-                <span className="font-mono text-xs">{payment.keeperhubExecutionId}</span>
+              <div className="flex justify-between gap-4 py-2">
+                <dt className="text-gray-500">To</dt>
+                <dd className="font-mono text-xs">{formatAddress(payment.recipient)}</dd>
               </div>
-            )}
+              <div className="flex justify-between gap-4 py-2">
+                <dt className="text-gray-500">Amount</dt>
+                <dd className="font-medium">{formatEthAmount(payment.amount)} ETH</dd>
+              </div>
+              {payment.transactionHash && (
+                <div className="flex justify-between gap-4 py-2">
+                  <dt className="text-gray-500">Transaction</dt>
+                  <dd className="flex items-center gap-2">
+                    <a
+                      href={getExplorerUrl(BASE_SEPOLIA_CHAIN_ID, payment.transactionHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-xs underline-offset-4 hover:underline flex items-center gap-1"
+                    >
+                      {formatTransactionHash(payment.transactionHash)}
+                      <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                    </a>
+                  </dd>
+                </div>
+              )}
+              {payment.keeperhubExecutionId && (
+                <div className="flex justify-between gap-4 py-2">
+                  <dt className="text-gray-500">Execution</dt>
+                  <dd className="font-mono text-xs">{payment.keeperhubExecutionId}</dd>
+                </div>
+              )}
+            </dl>
             {payment.errorMessage && (
-              <p className="text-sm text-red-600">{payment.errorMessage}</p>
+              <div className="rounded-md bg-red-50 border border-red-200 p-3" role="alert">
+                <p className="text-sm text-red-600 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                  {payment.errorMessage}
+                </p>
+              </div>
             )}
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <div className="flex flex-wrap gap-2 pt-2">
-              {payment.status !== 'paid' && (
-                <Button onClick={handleRetry} variant="pill" size="sm" disabled={busy}>
-                  {busy ? 'Working...' : 'Retry this payment'}
-                </Button>
-              )}
-              {payment.status === 'unknown' && (
-                <Button onClick={handleRefresh} variant="pillOutline" size="sm" disabled={busy}>
-                  Check status
-                </Button>
-              )}
-              {payment.status === 'failed' && (
-                <Button onClick={handleNewPayment} variant="pillOutline" size="sm" disabled={busy}>
-                  Create new payment
-                </Button>
-              )}
-              {payment.status === 'paid' && (
-                <Button onClick={handleNewPayment} variant="pillOutline" size="sm" disabled={busy}>
-                  New payment
-                </Button>
-              )}
-            </div>
+            {error && (
+              <div className="rounded-md bg-red-50 border border-red-200 p-3" role="alert">
+                <p className="text-sm text-red-600 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                  {error}
+                </p>
+              </div>
+            )}
+            <ActionButtons
+              payment={payment}
+              busy={busy}
+              onRetry={handleRetry}
+              onRefresh={handleRefresh}
+              onNewPayment={handleNewPayment}
+            />
           </CardContent>
         </Card>
       )}

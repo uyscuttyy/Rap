@@ -8,6 +8,7 @@ import { StatusBadge, StatusExplainer, formatEthAmount } from '@/components/paym
 import { formatAddress, formatTransactionHash } from '@/lib/utils';
 import { getExplorerUrl, BASE_SEPOLIA_CHAIN_ID } from '@/lib/keeperhub';
 import { toast } from 'sonner';
+import { Loader2, CheckCircle2, AlertCircle, XCircle, RefreshCw, ExternalLink, ChevronLeft } from 'lucide-react';
 
 interface ExecutionInfo {
   keeperhubExecutionId: string;
@@ -37,6 +38,26 @@ async function fetchPayment(id: string): Promise<PaymentDetail> {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Payment not found');
   return data as PaymentDetail;
+}
+
+function Spinner({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) {
+  const sizes = { sm: 'h-4 w-4', md: 'h-5 w-5', lg: 'h-8 w-8' };
+  return (
+    <Loader2 className={`${sizes[size]} animate-spin text-current`} aria-hidden="true" />
+  );
+}
+
+function StatusIcon({ status }: { status: PaymentDetail['status'] }) {
+  switch (status) {
+    case 'paid':
+      return <CheckCircle2 className="h-5 w-5 text-green-600" aria-hidden="true" />;
+    case 'failed':
+      return <XCircle className="h-5 w-5 text-red-600" aria-hidden="true" />;
+    case 'pending':
+      return <Loader2 className="h-5 w-5 animate-spin text-yellow-600" aria-hidden="true" />;
+    case 'unknown':
+      return <AlertCircle className="h-5 w-5 text-gray-600" aria-hidden="true" />;
+  }
 }
 
 export default function PaymentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -109,19 +130,38 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
-      <Link href="/history" className="text-sm text-gray-500 hover:text-black">
+      <Link
+        href="/history"
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-black mb-6"
+      >
+        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         Back to history
       </Link>
 
       {loading && (
-        <div className="mx-auto mt-8 max-w-xl rounded-lg border border-gray-200 bg-white p-8 text-center">
-          <p className="text-gray-500">Loading payment...</p>
+        <div
+          className="mx-auto mt-8 max-w-xl rounded-lg border border-gray-200 bg-white p-8 text-center"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-center justify-center gap-2">
+            <Spinner size="md" />
+            <span className="text-gray-500">Loading payment...</span>
+          </div>
         </div>
       )}
 
       {!loading && error && !payment && (
-        <div className="mx-auto mt-8 max-w-xl rounded-lg border border-red-200 bg-red-50 p-8 text-center">
+        <div
+          className="mx-auto mt-8 max-w-xl rounded-lg border border-red-200 bg-red-50 p-8 text-center"
+          role="alert"
+        >
+          <AlertCircle className="h-10 w-10 mx-auto text-red-500 mb-3" aria-hidden="true" />
           <p className="text-sm text-red-600">{error}</p>
+          <Button variant="pillOutline" className="mt-4" onClick={load}>
+            <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
+            Try again
+          </Button>
         </div>
       )}
 
@@ -129,7 +169,10 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         <Card className="mx-auto mt-6 max-w-xl">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Payment details</CardTitle>
+              <div className="flex items-center gap-3">
+                <StatusIcon status={payment.status} />
+                <CardTitle>Payment details</CardTitle>
+              </div>
               <StatusBadge status={payment.status} />
             </div>
             <CardDescription>
@@ -137,68 +180,114 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <div className="flex justify-between gap-4">
-              <span className="text-gray-500">Payment ID</span>
-              <span className="font-mono text-xs break-all text-right">{payment.paymentId}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-gray-500">To</span>
-              <span className="font-mono text-xs">{formatAddress(payment.recipient)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-gray-500">Amount</span>
-              <span className="font-medium">{formatEthAmount(payment.amount)} ETH</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-gray-500">Network</span>
-              <span>{payment.network}</span>
-            </div>
-            {payment.transactionHash && (
-              <div className="flex justify-between gap-4">
-                <span className="text-gray-500">Transaction</span>
-                <a
-                  href={getExplorerUrl(BASE_SEPOLIA_CHAIN_ID, payment.transactionHash)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono text-xs underline-offset-4 hover:underline"
-                >
-                  {formatTransactionHash(payment.transactionHash)}
-                </a>
+            <dl className="space-y-3 divide-y divide-gray-100">
+              <div className="flex justify-between gap-4 py-2">
+                <dt className="text-gray-500">Payment ID</dt>
+                <dd className="font-mono text-xs break-all text-right">{payment.paymentId}</dd>
               </div>
-            )}
-            {payment.keeperhubExecutionId && (
-              <div className="flex justify-between gap-4">
-                <span className="text-gray-500">Execution</span>
-                <span className="font-mono text-xs">{payment.keeperhubExecutionId}</span>
+              <div className="flex justify-between gap-4 py-2">
+                <dt className="text-gray-500">To</dt>
+                <dd className="font-mono text-xs">{formatAddress(payment.recipient)}</dd>
               </div>
-            )}
+              <div className="flex justify-between gap-4 py-2">
+                <dt className="text-gray-500">Amount</dt>
+                <dd className="font-medium">{formatEthAmount(payment.amount)} ETH</dd>
+              </div>
+              <div className="flex justify-between gap-4 py-2">
+                <dt className="text-gray-500">Network</dt>
+                <dd>{payment.network}</dd>
+              </div>
+              {payment.transactionHash && (
+                <div className="flex justify-between gap-4 py-2">
+                  <dt className="text-gray-500">Transaction</dt>
+                  <dd className="flex items-center gap-2">
+                    <a
+                      href={getExplorerUrl(BASE_SEPOLIA_CHAIN_ID, payment.transactionHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-xs underline-offset-4 hover:underline flex items-center gap-1"
+                    >
+                      {formatTransactionHash(payment.transactionHash)}
+                      <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                    </a>
+                  </dd>
+                </div>
+              )}
+              {payment.keeperhubExecutionId && (
+                <div className="flex justify-between gap-4 py-2">
+                  <dt className="text-gray-500">Execution</dt>
+                  <dd className="font-mono text-xs">{payment.keeperhubExecutionId}</dd>
+                </div>
+              )}
+            </dl>
+
             {payment.errorMessage && (
-              <p className="text-sm text-red-600">{payment.errorMessage}</p>
+              <div className="rounded-md bg-red-50 border border-red-200 p-3" role="alert">
+                <p className="text-sm text-red-600 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                  {payment.errorMessage}
+                </p>
+              </div>
             )}
+
             {payment.executions.length > 0 && (
               <div className="pt-2">
                 <p className="font-medium">Execution attempts</p>
-                <ul className="mt-2 space-y-2">
+                <ul className="mt-2 space-y-2" role="list">
                   {payment.executions.map((e) => (
-                    <li key={e.keeperhubExecutionId} className="rounded-md bg-gray-50 p-3 font-mono text-xs text-gray-600">
-                      <p>{e.keeperhubExecutionId} : {e.status}</p>
-                      {e.transactionHash && <p className="mt-1">{formatTransactionHash(e.transactionHash)}</p>}
-                      {e.errorMessage && <p className="mt-1 text-red-600">{e.errorMessage}</p>}
+                    <li
+                      key={e.keeperhubExecutionId}
+                      className="rounded-md bg-gray-50 p-3 font-mono text-xs text-gray-600"
+                    >
+                      <p className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${
+                            e.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            e.status === 'failed' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}
+                        >
+                          {e.status}
+                        </span>
+                        {e.keeperhubExecutionId}
+                      </p>
+                      {e.transactionHash && (
+                        <p className="mt-1 flex items-center gap-1">
+                          <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                          {formatTransactionHash(e.transactionHash)}
+                        </p>
+                      )}
+                      {e.errorMessage && (
+                        <p className="mt-1 text-red-600 flex items-center gap-2">
+                          <AlertCircle className="h-3 w-3" aria-hidden="true" />
+                          {e.errorMessage}
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>
               </div>
             )}
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <div className="flex flex-wrap gap-2 pt-2">
+
+            {error && (
+              <div className="rounded-md bg-red-50 border border-red-200 p-3" role="alert">
+                <p className="text-sm text-red-600 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                  {error}
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2 pt-2" role="group" aria-label="Payment actions">
               {payment.status !== 'paid' && (
                 <Button onClick={handleRetry} variant="pill" size="sm" disabled={busy}>
-                  {busy ? 'Working...' : 'Retry this payment'}
+                  {busy ? <Spinner /> : 'Retry this payment'}
                 </Button>
               )}
               {payment.status === 'unknown' && (
                 <Button onClick={handleRefresh} variant="pillOutline" size="sm" disabled={busy}>
-                  Check status
+                  <RefreshCw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} aria-hidden="true" />
+                  <span>Check status</span>
                 </Button>
               )}
               {payment.status === 'failed' && (
