@@ -2,6 +2,7 @@ import type { Address } from 'viem';
 
 const KEEPERHUB_API_URL = process.env.KEEPERHUB_API_URL || 'https://app.keeperhub.com/api';
 const KEEPERHUB_API_KEY = process.env.KEEPERHUB_API_KEY;
+const KEEPERHUB_ORG_KEY = process.env.KEEPERHUB_ORG_KEY;
 
 if (!KEEPERHUB_API_KEY) {
   console.warn('KEEPERHUB_API_KEY not set - KeeperHub integration will not work');
@@ -13,6 +14,38 @@ export interface TransferRequest {
   amount: string;
   tokenAddress?: Address;
   gasLimitMultiplier?: string;
+  simulate?: boolean;
+}
+
+export interface ContractCallRequest {
+  chainId: number;
+  contractAddress: Address;
+  functionName: string;
+  functionArgs: string; // JSON array string
+  abi?: string; // JSON string
+  value?: string;
+  gasLimitMultiplier?: string;
+  simulate?: boolean;
+}
+
+export interface CheckAndExecuteRequest {
+  chainId: number;
+  contractAddress: Address;
+  functionName: string;
+  functionArgs: string; // JSON array string
+  abi?: string;
+  condition: {
+    operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte';
+    value: string;
+  };
+  action: {
+    contractAddress: Address;
+    functionName: string;
+    functionArgs: string;
+    abi?: string;
+    value?: string;
+    gasLimitMultiplier?: string;
+  };
   simulate?: boolean;
 }
 
@@ -38,6 +71,25 @@ export interface TransferResponse {
   shortfallWei?: string;
   nativeSymbol?: string;
   originalError?: string;
+  success: boolean;
+}
+
+export interface CheckAndExecuteResponse {
+  executed: boolean;
+  executionId?: string;
+  status?: 'completed' | 'failed' | 'unconfirmed' | 'simulated';
+  conditionResult: {
+    met: boolean;
+    observedValue: string;
+    targetValue: string;
+    operator: string;
+  };
+  transactionHash?: string;
+  transactionLink?: string;
+  sponsored?: boolean;
+  error?: string;
+  code?: string;
+  retryable?: boolean;
   success: boolean;
 }
 
@@ -72,11 +124,31 @@ export interface KeeperHubError {
 
 export class KeeperHubService {
   private apiKey: string;
+  private orgKey: string;
   private baseUrl: string;
 
   constructor() {
     this.apiKey = KEEPERHUB_API_KEY || '';
+    this.orgKey = KEEPERHUB_ORG_KEY || '';
     this.baseUrl = KEEPERHUB_API_URL;
+  }
+
+  private getAuthHeaders(idempotencyKey?: string): HeadersInit {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    // Prefer org key for programmatic access
+    const authKey = this.orgKey || this.apiKey;
+    if (authKey) {
+      headers['Authorization'] = `Bearer ${authKey}`;
+    }
+
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
+
+    return headers;
   }
 
   private async request<T>(
@@ -85,18 +157,9 @@ export class KeeperHubService {
     body?: unknown,
     idempotencyKey?: string
   ): Promise<T> {
-    const headers: HeadersInit = {
-      'Authorization': `Bearer ${this.apiKey}`,
-      'Content-Type': 'application/json',
-    };
-
-    if (idempotencyKey) {
-      headers['Idempotency-Key'] = idempotencyKey;
-    }
-
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method,
-      headers,
+      headers: this.getAuthHeaders(idempotencyKey),
       body: body ? JSON.stringify(body) : undefined,
     });
 
@@ -113,6 +176,7 @@ export class KeeperHubService {
     return data as T;
   }
 
+  // ===== TRANSFER (Native/ERC20) =====
   async simulateTransfer(request: TransferRequest): Promise<TransferResponse> {
     return this.request<TransferResponse>('POST', '/api/execute/transfer', {
       ...request,
@@ -127,6 +191,37 @@ export class KeeperHubService {
     return this.request<TransferResponse>('POST', '/api/execute/transfer', request, idempotencyKey);
   }
 
+  // ===== CONTRACT CALL (Read/Write) =====
+  async simulateContractCall(request: ContractCallRequest): Promise<TransferResponse> {
+    return this.request<TransferResponse>('POST', '/api/execute/contract-call', {
+      ...request,
+      simulate: true,
+    });
+  }
+
+  async executeContractCall(
+    request: ContractCallRequest,
+    idempotencyKey: string
+  ): Promise<TransferResponse> {
+    return this.request<TransferResponse>('POST', '/api/execute/contract-call', request, idempotencyKey);
+  }
+
+  // ===== CHECK AND EXECUTE (Conditional Execution) =====
+  async simulateCheckAndExecute(request: CheckAndExecuteRequest): Promise<CheckAndExecuteResponse> {
+    return this.request<CheckAndExecuteResponse>('POST', '/api/execute/check-and-execute', {
+      ...request,
+      simulate: true,
+    });
+  }
+
+  async executeCheckAndExecute(
+    request: CheckAndExecuteRequest,
+    idempotencyKey: string
+  ): Promise<CheckAndExecuteResponse> {
+    return this.request<CheckAndExecuteResponse>('POST', '/api/execute/check-and-execute', request, idempotencyKey);
+  }
+
+  // ===== EXECUTION STATUS =====
   async getExecutionStatus(executionId: string): Promise<ExecutionStatusResponse> {
     return this.request<ExecutionStatusResponse>('GET', `/api/execute/${executionId}/status`);
   }
@@ -161,6 +256,13 @@ export const keeperHub = new KeeperHubService();
 export const BASE_SEPOLIA_CHAIN_ID = 84532;
 export const BASE_SEPOLIA_USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as Address;
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+
+export const SEPOLIA_CHAIN_ID = 11155111;
+export const SEPOLIA_USDC_ADDRESS = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as Address;
+export const SEPOLIA_WETH_ADDRESS = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14' as Address;
+export const SEPOLIA_AAVE_POOL_ADDRESS = '0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951' as Address;
+export const SEPOLIA_AAVE_POOL_DATA_PROVIDER = '0x69FA639f7B0BbC37b9E42A6c3180E47A8bE8b3E4' as Address;
+export const SEPOLIA_UNISWAP_UNIVERSAL_ROUTER = '0x3fC91A3afd70395Cd427566f7c0d4aB2B5E8C6e5' as Address;
 
 export function isNativeToken(tokenAddress: Address): boolean {
   return tokenAddress.toLowerCase() === ZERO_ADDRESS.toLowerCase();
