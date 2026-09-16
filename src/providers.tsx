@@ -3,19 +3,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
-import { injected, metaMask, walletConnect } from 'wagmi/connectors';
+import { injected } from 'wagmi/connectors/injected';
 import { useState, type ReactNode } from 'react';
 import { Toaster } from 'sonner';
 
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
-
+// Single injected connector on purpose: it uses window.ethereum directly,
+// needs no extra peer dependencies, and avoids provider-selector races when
+// MetaMask, Phantom, and other extensions are coinstalled. WalletConnect is
+// intentionally omitted until a project ID is configured.
 const config = createConfig({
   chains: [baseSepolia],
-  connectors: [
-    injected(),
-    metaMask(),
-    ...(projectId ? [walletConnect({ projectId })] : []),
-  ],
+  connectors: [injected()],
   transports: {
     [baseSepolia.id]: http(process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL),
   },
