@@ -34,6 +34,9 @@ function Nav() {
           <Link href="/history" className="text-sm text-gray-600 hover:text-black">
             History
           </Link>
+          <Link href="/guardian" className="text-sm text-gray-600 hover:text-black">
+            Guardian
+          </Link>
           <Link href="/api-docs" className="text-sm text-gray-600 hover:text-black">
             API Docs
           </Link>

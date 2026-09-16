@@ -31,7 +31,7 @@ const SEPOLIA_CHAIN_ID = 11155111;
 const SEPOLIA_USDC_ADDRESS = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as Address;
 const SEPOLIA_WETH_ADDRESS = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14' as Address;
 const SEPOLIA_AAVE_POOL_ADDRESS = '0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951' as Address;
-const SEPOLIA_AAVE_POOL_DATA_PROVIDER = '0x69FA639f7B0BbC37b9E42A6c3180E47A8bE8b3E4' as Address;
+const SEPOLIA_AAVE_POOL_DATA_PROVIDER = '0x3e9708d80f7B3e43118013075F7e95CE3AB31F31' as Address;
 
 const X402_PAYMENT_AMOUNT_USDC = process.env.X402_PAYMENT_AMOUNT_USDC || '10000'; // $0.01 USDC
 const X402_PAYMENT_RECIPIENT = (process.env.X402_PAYMENT_RECIPIENT || '0x0000000000000000000000000000000000000000') as Address;
@@ -219,7 +219,7 @@ class KeeperHubClient {
   }
 
   async simulateTransfer(request: KeeperHubTransferRequest): Promise<KeeperHubResponse> {
-    return this.request<KeeperHubResponse>('POST', '/api/execute/transfer', {
+    return this.request<KeeperHubResponse>('POST', '/execute/transfer', {
       ...request,
       simulate: true,
     });
@@ -229,11 +229,11 @@ class KeeperHubClient {
     request: KeeperHubTransferRequest,
     idempotencyKey: string
   ): Promise<KeeperHubResponse> {
-    return this.request<KeeperHubResponse>('POST', '/api/execute/transfer', request, idempotencyKey);
+    return this.request<KeeperHubResponse>('POST', '/execute/transfer', request, idempotencyKey);
   }
 
   async simulateContractCall(request: KeeperHubContractCallRequest): Promise<KeeperHubResponse> {
-    return this.request<KeeperHubResponse>('POST', '/api/execute/contract-call', {
+    return this.request<KeeperHubResponse>('POST', '/execute/contract-call', {
       ...request,
       simulate: true,
     });
@@ -243,11 +243,11 @@ class KeeperHubClient {
     request: KeeperHubContractCallRequest,
     idempotencyKey: string
   ): Promise<KeeperHubResponse> {
-    return this.request<KeeperHubResponse>('POST', '/api/execute/contract-call', request, idempotencyKey);
+    return this.request<KeeperHubResponse>('POST', '/execute/contract-call', request, idempotencyKey);
   }
 
   async simulateCheckAndExecute(request: KeeperHubCheckAndExecuteRequest): Promise<CheckAndExecuteResponse> {
-    return this.request<CheckAndExecuteResponse>('POST', '/api/execute/check-and-execute', {
+    return this.request<CheckAndExecuteResponse>('POST', '/execute/check-and-execute', {
       ...request,
       simulate: true,
     });
@@ -257,11 +257,11 @@ class KeeperHubClient {
     request: KeeperHubCheckAndExecuteRequest,
     idempotencyKey: string
   ): Promise<CheckAndExecuteResponse> {
-    return this.request<CheckAndExecuteResponse>('POST', '/api/execute/check-and-execute', request, idempotencyKey);
+    return this.request<CheckAndExecuteResponse>('POST', '/execute/check-and-execute', request, idempotencyKey);
   }
 
   async getExecutionStatus(executionId: string): Promise<ExecutionStatusResponse> {
-    return this.request<ExecutionStatusResponse>('GET', `/api/execute/${executionId}/status`);
+    return this.request<ExecutionStatusResponse>('GET', `/execute/${executionId}/status`);
   }
 
   async waitForExecution(
@@ -492,38 +492,36 @@ async function main() {
     });
   }
 
-  // ---------- STEP 3: KeeperHub Pre-flight Dry-run for Aave Flash Loan ----------
-  addAuditStep(3, 'KeeperHub Dry-run: Aave Health Factor Protection', 'pending', {
-    trigger: 'Health Factor < 1.25',
-    action: 'Flash loan repayment via Aave v3',
+  // ---------- STEP 3: KeeperHub Pre-flight Dry-run (check-and-execute) ----------
+  // KeeperHub requires the check function to resolve to exactly one scalar,
+  // so the guardian pre-check reads the USDC protection reserve balance and
+  // only arms the $0.01 USDC transfer when the reserve covers it.
+  addAuditStep(3, 'KeeperHub Dry-run: reserve check-and-execute', 'pending', {
+    check: 'USDC balanceOf(reserve) >= 10000 base units',
+    action: 'USDC transfer $0.01 to recipient',
     user: DEMO_USER_ADDRESS,
   });
 
-  // Build check-and-execute payload for health factor monitoring
-  const healthFactorThreshold = BigInt(Math.floor(1.25 * 1e18));
+  const ERC20_TRANSFER_ABI = parseAbi([
+    'function balanceOf(address owner) view returns (uint256)',
+    'function transfer(address to, uint256 amount) returns (bool)',
+  ]);
+
   const checkAndExecutePayload = {
     chainId: SEPOLIA_CHAIN_ID,
-    contractAddress: SEPOLIA_AAVE_POOL_ADDRESS,
-    functionName: 'getUserAccountData',
+    contractAddress: SEPOLIA_USDC_ADDRESS,
+    functionName: 'balanceOf',
     functionArgs: JSON.stringify([DEMO_USER_ADDRESS]),
-    abi: JSON.stringify(AAVE_POOL_ABI),
+    abi: JSON.stringify(ERC20_TRANSFER_ABI),
     condition: {
-      operator: 'lt' as const,
-      value: healthFactorThreshold.toString(),
+      operator: 'gte' as const,
+      value: '10000',
     },
     action: {
-      contractAddress: SEPOLIA_AAVE_POOL_ADDRESS,
-      functionName: 'flashLoan',
-      functionArgs: JSON.stringify([
-        DEMO_USER_ADDRESS,
-        [SEPOLIA_USDC_ADDRESS],
-        ['1000000'], // 1 USDC placeholder
-        [0],
-        DEMO_USER_ADDRESS,
-        '0x',
-        0,
-      ]),
-      abi: JSON.stringify(AAVE_POOL_ABI),
+      contractAddress: SEPOLIA_USDC_ADDRESS,
+      functionName: 'transfer',
+      functionArgs: JSON.stringify([X402_PAYMENT_RECIPIENT, '10000']),
+      abi: JSON.stringify(ERC20_TRANSFER_ABI),
     },
   };
 
@@ -539,7 +537,7 @@ async function main() {
     console.log(`   Would Execute: ${dryRunResult.executed}`);
     console.log(`   Simulation Success: ${dryRunResult.success}`);
 
-    addAuditStep(3, 'KeeperHub Dry-run: Aave Health Factor Protection', 'simulated', {
+    addAuditStep(3, 'KeeperHub Dry-run: reserve check-and-execute', 'simulated', {
       conditionMet: dryRunResult.conditionResult.met,
       observedValue: dryRunResult.conditionResult.observedValue,
       targetValue: dryRunResult.conditionResult.targetValue,
@@ -548,7 +546,7 @@ async function main() {
     });
   } catch (error) {
     console.error('KeeperHub dry-run failed:', error);
-    addAuditStep(3, 'KeeperHub Dry-run: Aave Health Factor Protection', 'failed', {
+    addAuditStep(3, 'KeeperHub Dry-run: reserve check-and-execute', 'failed', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
   }

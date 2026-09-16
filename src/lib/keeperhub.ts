@@ -178,7 +178,7 @@ export class KeeperHubService {
 
   // ===== TRANSFER (Native/ERC20) =====
   async simulateTransfer(request: TransferRequest): Promise<TransferResponse> {
-    return this.request<TransferResponse>('POST', '/api/execute/transfer', {
+    return this.request<TransferResponse>('POST', '/execute/transfer', {
       ...request,
       simulate: true,
     });
@@ -188,12 +188,12 @@ export class KeeperHubService {
     request: TransferRequest,
     idempotencyKey: string
   ): Promise<TransferResponse> {
-    return this.request<TransferResponse>('POST', '/api/execute/transfer', request, idempotencyKey);
+    return this.request<TransferResponse>('POST', '/execute/transfer', request, idempotencyKey);
   }
 
   // ===== CONTRACT CALL (Read/Write) =====
   async simulateContractCall(request: ContractCallRequest): Promise<TransferResponse> {
-    return this.request<TransferResponse>('POST', '/api/execute/contract-call', {
+    return this.request<TransferResponse>('POST', '/execute/contract-call', {
       ...request,
       simulate: true,
     });
@@ -203,12 +203,12 @@ export class KeeperHubService {
     request: ContractCallRequest,
     idempotencyKey: string
   ): Promise<TransferResponse> {
-    return this.request<TransferResponse>('POST', '/api/execute/contract-call', request, idempotencyKey);
+    return this.request<TransferResponse>('POST', '/execute/contract-call', request, idempotencyKey);
   }
 
   // ===== CHECK AND EXECUTE (Conditional Execution) =====
   async simulateCheckAndExecute(request: CheckAndExecuteRequest): Promise<CheckAndExecuteResponse> {
-    return this.request<CheckAndExecuteResponse>('POST', '/api/execute/check-and-execute', {
+    return this.request<CheckAndExecuteResponse>('POST', '/execute/check-and-execute', {
       ...request,
       simulate: true,
     });
@@ -218,12 +218,12 @@ export class KeeperHubService {
     request: CheckAndExecuteRequest,
     idempotencyKey: string
   ): Promise<CheckAndExecuteResponse> {
-    return this.request<CheckAndExecuteResponse>('POST', '/api/execute/check-and-execute', request, idempotencyKey);
+    return this.request<CheckAndExecuteResponse>('POST', '/execute/check-and-execute', request, idempotencyKey);
   }
 
   // ===== EXECUTION STATUS =====
   async getExecutionStatus(executionId: string): Promise<ExecutionStatusResponse> {
-    return this.request<ExecutionStatusResponse>('GET', `/api/execute/${executionId}/status`);
+    return this.request<ExecutionStatusResponse>('GET', `/execute/${executionId}/status`);
   }
 
   async waitForExecution(
@@ -261,7 +261,7 @@ export const SEPOLIA_CHAIN_ID = 11155111;
 export const SEPOLIA_USDC_ADDRESS = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as Address;
 export const SEPOLIA_WETH_ADDRESS = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14' as Address;
 export const SEPOLIA_AAVE_POOL_ADDRESS = '0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951' as Address;
-export const SEPOLIA_AAVE_POOL_DATA_PROVIDER = '0x69FA639f7B0BbC37b9E42A6c3180E47A8bE8b3E4' as Address;
+export const SEPOLIA_AAVE_POOL_DATA_PROVIDER = '0x3e9708d80f7B3e43118013075F7e95CE3AB31F31' as Address;
 export const SEPOLIA_UNISWAP_UNIVERSAL_ROUTER = '0x3fC91A3afd70395Cd427566f7c0d4aB2B5E8C6e5' as Address;
 
 export function isNativeToken(tokenAddress: Address): boolean {

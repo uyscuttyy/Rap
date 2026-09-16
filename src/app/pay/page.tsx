@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useAccount } from 'wagmi';
-import { isAddress, parseEther } from 'viem';
+import { useAccount, useBalance } from 'wagmi';
+import { isAddress, parseEther, formatUnits } from 'viem';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,6 +72,7 @@ function ActionButtons({
 
 export default function PayPage() {
   const { address, isConnected } = useAccount();
+  const { data: balance } = useBalance({ address });
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [step, setStep] = useState<Step>('form');
@@ -187,6 +188,11 @@ export default function PayPage() {
         <p className="mt-2 text-center text-gray-600">
           Create a payment. RAP gives it an identity and executes it exactly once.
         </p>
+        {isConnected && balance && (
+          <p className="mt-3 text-center text-sm text-gray-500">
+            Wallet balance: <span className="font-medium text-black">{Number(formatUnits(balance.value, balance.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 })} {balance.symbol}</span>
+          </p>
+        )}
       </header>
 
       {step === 'form' && (
